@@ -8,22 +8,20 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 from datetime import datetime, timedelta
 import heartpy as hp
 
-import Preferences
+client = influxdb_client.InfluxDBClient(url="http://localhost:8080", token="S1St6xMc4hEz8NU2A6-tEoaGtvzDSUMNJBkIL7W4PE8dfwAQvjaabkE7FZvZtrvoUFwc195CVV7pf4necsxgQw==", org="uh")
 
-client = influxdb_client.InfluxDBClient(url=Preferences.url, token=Preferences.token, org=Preferences.org)
+bucket = "ehealth"
 
-bucket = "ECG"
-
-start_time = "2023-11-20T13:40:00.000Z"
-stop_time = "2023-11-20T13:50:00.000Z"
+start_time = "2023-11-22T09:53:00.000Z"
+stop_time = "2023-11-22T09:54:00.000Z"
 counter = 0
 
 query_api = client.query_api()
 
 while counter < 6:
     #(start: 2023-11-19T16:00:00Z, stop:2023-11-19T16:10:00Z) (start: -5m)
-    query = """from(bucket: "ECG")
-      |> range(start: {}, stop: {})
+    query = """from(bucket: "ehealth")
+      |> range(start: -30s)
       |> filter(fn: (r) =>
         r._measurement == "wifi_status" and
         r._field == "ecg_value"
@@ -31,7 +29,7 @@ while counter < 6:
       |> window(every: 1m)  // Retrieve data in 10-minute intervals
       """.format(start_time,stop_time)
 
-    tables = query_api.query(query, org="Uhasselt")
+    tables = query_api.query(query, org="uh")
 
     data_points = []
     
@@ -43,7 +41,7 @@ while counter < 6:
     # Create a pandas DataFrame
     df = pd.DataFrame(data_points, columns=["Time", "Measurement", "Value"])
 
-    time_format = pd.to_datetime(df['Time'], infer_datetime_format=True).dt.strftime('%Y-%m-%d %H:%M:%S.%f').iloc[0]
+    time_format = pd.to_datetime(df['Time']).iloc[0]
     df['Time'] = pd.to_datetime(df['Time'], format=time_format)
 
     time_diff = df['Time'].diff().mean()  # Calculate average time difference between samples
@@ -128,7 +126,7 @@ while counter < 6:
     point = Point("Hartslag").field("bpm", m['bpm'])
 
     # Write the data point to InfluxDB
-    write_api.write(bucket=bucket, org="Uhasselt", record=point)
+    write_api.write(bucket=bucket, org="uh", record=point)
     
     # Increment the start_time and stop_time for the next iteration
     print(start_time)
